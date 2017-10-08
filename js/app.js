@@ -195,25 +195,25 @@ const listMoves = function(player, table, deckSchema, lister, toStringer, checke
 }
 
 const listMovesForCard = function(player, handIndex, table, deckSchema, toStringer, checker, ruleFactory) {
-  let card = table.players[player].hand[handIndex];
-  var str = '';
+  let card = table.players[player].hand[handIndex], str = '', moves = [];
   for (let ruleHandler in deckSchema[card].rules) {
     if (deckSchema[card].offense) {
       for (let i in table.players) {
         let check = checker(card, table.players[i], table, deckSchema);
         if (check) {
-          str += toStringer(card, true, deckSchema[card].type, true);
+          moves.push([toStringer(card, false, deckSchema[card].type, true), table.players[player].hand, table.players[i][deckSchema[card].type], handIndex]);
         }
       }
     } else {
       let check = checker(card, table.players[player],table, deckSchema);
       if (check) {
-        str += toStringer(card, false, deckSchema[card].type, true);
+        moves.push([toStringer(card, false, deckSchema[card].type, true), table.players[player].hand, table.players[player][deckSchema[card].type], handIndex]);
       }
     }
   }
   console.log(card);
-  console.log(str);
+  console.log(moves);
+  return moves;
 }
 
 const checkPlay = function(card, player, table, deckSchema) {
@@ -252,7 +252,7 @@ topCardRegexRuleHandler = function(card, player, table, deckSchema, args) {
 
 statusGoRuleHandler = function(card, player, table, deckSchema) {
   if (!player.status.length || !player.status[0] == 'go') {
-    return true;
+    return false;
   }
   return true;
 }
@@ -268,4 +268,8 @@ speedLimitRuleHandler = function(card, player, table, deckSchema) {
     }
   }
   return isCountry;
+}
+
+const chooseMove = function(players, playerIndex, playerSchema, moves) {
+
 }
