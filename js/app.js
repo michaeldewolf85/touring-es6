@@ -189,9 +189,11 @@ const deal = function(table, gameSchema, mover) {
 
 const listMoves = function(player, table, deckSchema, lister, toStringer, checker, ruleFactory) {
   var len = table.players[player].hand.length;
+  let availableMoves = [];
   for (let i = 0; i < len; i++) {
-    lister(player, i, table, deckSchema, toStringer, checker, ruleFactory);
+    availableMoves.push(lister(player, i, table, deckSchema, toStringer, checker, ruleFactory));
   }
+  return availableMoves;
 }
 
 const listMovesForCard = function(player, handIndex, table, deckSchema, toStringer, checker, ruleFactory) {
@@ -211,8 +213,6 @@ const listMovesForCard = function(player, handIndex, table, deckSchema, toString
       }
     }
   }
-  console.log(card);
-  console.log(moves);
   return moves;
 }
 
@@ -271,5 +271,13 @@ speedLimitRuleHandler = function(card, player, table, deckSchema) {
 }
 
 const chooseMove = function(players, playerIndex, playerSchema, moves) {
-
+  let len = moves.length;
+  console.log(moves);
+  for (let i = 0; i < len; i++) {
+    if (!moves[i][1]) {
+      continue;
+    }
+    let card = moves[i][1][moves[i][3]];
+    console.log(card);
+  }
 }
