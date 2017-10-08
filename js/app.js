@@ -101,7 +101,8 @@ const deckSchema = {
     "offense": false,
     "rules": {
       "maxInPile": [2],
-      "statusGo": []
+      "statusGo": [],
+      "speedLimit": []
     }
   }
 };
@@ -112,8 +113,12 @@ const tableSchema = {
 };
 
 const playerSchema = {
-  "mandie": [],
-  "max": []
+  "mandie": {
+    'temperment': 0.8
+  },
+  "max": {
+    'temperment': 0.2
+  }
 };
 
 const gameSchema = {
@@ -195,30 +200,27 @@ const listMovesForCard = function(player, handIndex, table, deckSchema, toString
   for (let ruleHandler in deckSchema[card].rules) {
     if (deckSchema[card].offense) {
       for (let i in table.players) {
-        let check = checker(card, table.players[i], deckSchema);
+        let check = checker(card, table.players[i], table, deckSchema);
         if (check) {
           str += toStringer(card, true, deckSchema[card].type, true);
-        } else {
-          str += toStringer(card, true, deckSchema[card].type, false);
         }
       }
     } else {
-      let check = checker(card, table.players[player], deckSchema);
+      let check = checker(card, table.players[player],table, deckSchema);
       if (check) {
         str += toStringer(card, false, deckSchema[card].type, true);
-      } else {
-        str += toStringer(card, false, deckSchema[card].type, false);
       }
     }
   }
+  console.log(card);
   console.log(str);
 }
 
-const checkPlay = function(card, player, deckSchema) {
+const checkPlay = function(card, player, table, deckSchema) {
   let pile = player[deckSchema[card].type], isValid = false;
   for (let rule in deckSchema[card].rules) {
     let handler = ruleFactory(rule);
-    if (!window[handler](card, player, deckSchema, deckSchema[card].rules[rule])) {
+    if (!window[handler](card, player, table, deckSchema, deckSchema[card].rules[rule])) {
       return false;
     }
   }
@@ -229,7 +231,7 @@ const ruleFactory = function(ruleHandler) {
   return (ruleHandler + "RuleHandler");
 }
 
-maxInPileRuleHandler = function(card, player, deckSchema, args) {
+maxInPileRuleHandler = function(card, player, table, deckSchema, args) {
   let pile = player[deckSchema[card].type];
   if (pile.length >= args[0]) {
     return false;
@@ -237,7 +239,7 @@ maxInPileRuleHandler = function(card, player, deckSchema, args) {
   return true;
 }
 
-topCardRegexRuleHandler = function(card, player, deckSchema, args) {
+topCardRegexRuleHandler = function(card, player, table, deckSchema, args) {
   let pile = player[deckSchema[card].type];
   if (!pile.length && args[1]) {
     return true;
@@ -248,9 +250,22 @@ topCardRegexRuleHandler = function(card, player, deckSchema, args) {
   return true;
 }
 
-statusGoRuleHandler = function(card, player, deckSchema) {
+statusGoRuleHandler = function(card, player, table, deckSchema) {
   if (!player.status.length || !player.status[0] == 'go') {
-    return false;
+    return true;
   }
   return true;
+}
+
+speedLimitRuleHandler = function(card, player, table, deckSchema) {
+  var isCountry = false;
+  for (let i in table.players) {
+    if (table.players[i].speed.length && table.players[i].speed == 'cityLimits') {
+      return false;
+    }
+    if (table.players[i].speed.length && table.players[i].speed == 'country') {
+      isCountry = true;
+    }
+  }
+  return isCountry;
 }
