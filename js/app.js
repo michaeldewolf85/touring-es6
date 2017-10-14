@@ -345,7 +345,8 @@ const turnManager = function(table, playerIndex, mover, lister, deckSchema, stri
   let len = table.players.length;
   let score = '<h2>SCORE</h2>';
   for (let player in table.players) {
-    score += 'Player ' + player + ": <strong>" + info.players[player].score + " miles</strong></br>";
+    let status = table.players[player].status.length ? table.players[player].status[0] : 'Stopped';
+    score += 'Player ' + player + "(" + status + "): <strong>" + info.players[player].score + " miles</strong></br>";
   }
   div.innerHTML = score; 
   div.appendChild(moveInterface);
