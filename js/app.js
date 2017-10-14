@@ -3,6 +3,9 @@
  * Schema definitions.
  */
 
+/**
+ * Schema information of card types.
+ */
 const deckSchema = {
   "go": {
     "qty": 15,
@@ -115,27 +118,39 @@ const deckSchema = {
   }
 };
 
+/**
+ * Schema information for table piles.
+ */
 const tableSchema = {
   "common": ['deck', 'discard'],
   "player": ['hand', 'status', 'speed', 'min', 'low', 'high', 'max']
 };
 
+/**
+ * Schema information for players.
+ */
 const playerSchema = {
   "mandie": {
-    "machine": 0,
+    "machine": false,
     'temperment': 0.8
   },
   "max": {
-    "machine": 0,
+    "machine": true,
     'temperment': 0.2
   }
 };
 
+/**
+ * Game settings schema.
+ */
 const gameSchema = {
   "handSize": 5
 };
 
-const makeTable = function(tableSchema, players) {
+/**
+ * Build the game table in memory with all piles.
+ */
+const makeTable = function(tableSchema, playerSchema) {
   let len = tableSchema.common.length, table = {};
 
   table.common = {};
@@ -144,7 +159,8 @@ const makeTable = function(tableSchema, players) {
   }
 
   table.players = {};
-  for (let i = 0; i < players; i++) {
+  let players = playerSchema.length;
+  for (let i in playerSchema) {
     let len = tableSchema.player.length;
     table.players[i] = {};
     for (let j = 0; j < len; j++) {
@@ -154,6 +170,9 @@ const makeTable = function(tableSchema, players) {
   return table;
 }
 
+/**
+ * Build the deck.
+ */
 const makeStack = function(schema) {
   let cards = [];
   for (let cardName in deckSchema) {
@@ -162,6 +181,9 @@ const makeStack = function(schema) {
   return cards;
 };
 
+/**
+ * Shuffle a stack of cards.
+ */
 const shuffle = function(stack) {
   let count = stack.length;
   while (count) {
@@ -173,22 +195,37 @@ const shuffle = function(stack) {
   return stack;
 };
 
+/**
+ * Add multiple cards to a stack.
+ */
 const addCards = function(cards, destination) {
   destination.push.apply(destination, cards);
 }
 
+/**
+ * Move a card from one stack to another.
+ */
 const moveCard = function(source, destination, index) {
   index = index ? index : 0;
   destination.unshift(source[index]);
   source.splice(index, 1);
 }
 
-const moveCardToString = function(cardName, destinationPlayer, destinationName, status) {
-  let p = destinationPlayer === false ? " yourself " : " player " + destinationPlayer;
-  var status = status ? "CAN" : "CANNOT";
-  return cardName + " " + status + " by moved to " + destinationName + " of " + p;
+/**
+ * Make a human readable string out of a move object.
+ */
+const moveCardToString = function(cardName, destinationPlayer, destinationName) {
+  let p = destinationPlayer === false ? " of yourself " : " of player " + destinationPlayer;
+  if (destinationName == 'discard') {
+    p = '';
+  }
+
+  return cardName + " moves to " + destinationName + p;
 }
 
+/**
+ * Deal hands to all players.
+ */
 const deal = function(table, gameSchema, mover) {
   for (let i = 0; i < gameSchema.handSize; i++) {
     for (let j in table.players) {
@@ -197,6 +234,9 @@ const deal = function(table, gameSchema, mover) {
   }
 }
 
+/**
+ * Find all possible moves for a player's hand.
+ */
 const listMoves = function(player, table, deckSchema, lister, toStringer, checker, ruleFactory) {
   var len = table.players[player].hand.length;
   let availableMoves = [];
@@ -209,6 +249,9 @@ const listMoves = function(player, table, deckSchema, lister, toStringer, checke
   return availableMoves;
 }
 
+/**
+ * Find all possible moves for an individual card.
+ */
 const listMovesForCard = function(player, handIndex, table, deckSchema, toStringer, checker, ruleFactory) {
   let card = table.players[player].hand[handIndex], str = '', moves = [];
   if (deckSchema[card].offense) {
@@ -224,7 +267,7 @@ const listMovesForCard = function(player, handIndex, table, deckSchema, toString
         }
       }
       if (check) {
-        moves.push([toStringer(card, i, deckSchema[card].type, true), table.players[player].hand, table.players[i][deckSchema[card].type], handIndex]);
+        moves.push([toStringer(card, i, deckSchema[card].type), table.players[player].hand, table.players[i][deckSchema[card].type], handIndex, 'offense', i, deckSchema[card].type]);
       }
     }
   } else {
@@ -236,13 +279,16 @@ const listMovesForCard = function(player, handIndex, table, deckSchema, toString
       }
     }
     if (check) {
-      moves.push([toStringer(card, false, deckSchema[card].type, true), table.players[player].hand, table.players[player][deckSchema[card].type], handIndex]);
+      moves.push([toStringer(card, false, deckSchema[card].type), table.players[player].hand, table.players[player][deckSchema[card].type], handIndex, 'defense', player, deckSchema[card].type]);
     }
   }
-  moves.push([toStringer(card, false, 'discard', true), table.players[player].hand, table.common.discard, handIndex]);
+  moves.push([toStringer(card, false, 'discard'), table.players[player].hand, table.common.discard, handIndex, 'discard', false]);
   return moves;
 }
 
+/**
+ * Check if a move is valid.
+ */
 const checkPlay = function(card, player, table, deckSchema) {
   let pile = player[deckSchema[card].type], isValid = false;
   for (let rule in deckSchema[card].rules) {
@@ -254,10 +300,16 @@ const checkPlay = function(card, player, table, deckSchema) {
   return true;
 }
 
+/**
+ * Generate a rule handler from card schema definition.
+ */
 const ruleFactory = function(ruleHandler) {
   return (ruleHandler + "RuleHandler");
 }
 
+/**
+ * Rule handler that let's a pile have a max number of cards.
+ */
 maxInPileRuleHandler = function(card, player, table, deckSchema, args) {
   let pile = player[deckSchema[card].type];
   if (pile.length >= args[0]) {
@@ -266,6 +318,9 @@ maxInPileRuleHandler = function(card, player, table, deckSchema, args) {
   return true;
 }
 
+/**
+ * Rule handler that makes sure the top card of a pile matches a regex.
+ */
 topCardRegexRuleHandler = function(card, player, table, deckSchema, args) {
   let pile = player[deckSchema[card].type];
   if (!pile.length && args[1]) {
@@ -277,6 +332,9 @@ topCardRegexRuleHandler = function(card, player, table, deckSchema, args) {
   return true;
 }
 
+/**
+ * Rule handler that the status pile for the current player must have a "Go" card on top.
+ */
 statusGoRuleHandler = function(card, player, table, deckSchema) {
   if (!player.status.length || player.status[0] != 'go') {
     return false;
@@ -284,6 +342,9 @@ statusGoRuleHandler = function(card, player, table, deckSchema) {
   return true;
 }
 
+/**
+ * Rule handler for speed limits.
+ */
 speedLimitRuleHandler = function(card, player, table, deckSchema) {
   var isCountry = false;
   for (let i in table.players) {
@@ -297,16 +358,32 @@ speedLimitRuleHandler = function(card, player, table, deckSchema) {
   return isCountry;
 }
 
-const chooseMove = function(players, playerIndex, playerSchema, moves) {
-  let len = moves.length;
+/**
+ * Move picking for a machine player.
+ */
+const AIMove = function(players, playerIndex, playerSchema, moves, mover, stringer) {
+  let len = moves.length, moveMap = {};
   for (let i = 0; i < len; i++) {
-    if (!moves[i][1]) {
-      continue;
+    for (let j = 0; j < moves[i].length; j++) {
+      moveMap[moves[i][j][4]] = moveMap[moves[i][j][4]] ? moveMap[moves[i][j][4]] : [];
+      moveMap[moves[i][j][4]].push(moves[i][j]);
     }
-    let card = moves[i][1][moves[i][3]];
+  }
+
+  let arr = ['offense', 'defense', 'discard'];
+  for (let i = 0; i < arr.length; i++) {
+    if (moveMap[arr[i]] && moveMap[arr[i]].length) {
+      moveInfo = moveMap[arr[i]][0];
+      let str = playerIndex + " - " + moveInfo[0];
+      mover(moveInfo[1], moveInfo[2], moveInfo[3]);
+      return str;
+    }
   }
 }
 
+/**
+ * Generates a GUI and handler for humans to make a move.
+ */
 const moveGUI = function(players, playerIndex, playerSchema, moves, mover, postCallback) {
   let choicesGUI = document.createElement('DIV');
   let playerText = document.createElement('H3');
@@ -333,14 +410,10 @@ const moveGUI = function(players, playerIndex, playerSchema, moves, mover, postC
   return choicesGUI;
 }
 
-const turnManager = function(table, playerIndex, mover, lister, deckSchema, stringer, checker, ruleF, cardLister, div, gameManager) {
-  mover(table.common.deck, table.players[playerIndex].hand);
-  let moves = lister(playerIndex, table, deckSchema, cardLister, stringer, checker, ruleF);
-  var moveInterface = moveGUI(table.players, playerIndex, playerSchema, moves, mover, function() {
-    var nextPlayer = table.players[playerIndex + 1] ? playerIndex + 1 : 0;
-    turnManager(table, nextPlayer, mover, lister, deckSchema, stringer, checker, ruleF, cardLister, div, gameManager);
-  });
-  
+/**
+ * Manages turns and passes each turn onto the next.
+ */
+const turnManager = function(table, playerIndex, mover, lister, deckSchema, stringer, checker, ruleF, cardLister, div, gameManager, playerSchema) {
   var info = gameManager(table.players, deckSchema);
   let len = table.players.length;
   let score = '<h2>SCORE</h2>';
@@ -349,10 +422,33 @@ const turnManager = function(table, playerIndex, mover, lister, deckSchema, stri
     score += 'Player ' + player + "(" + status + "): <strong>" + info.players[player].score + " miles</strong></br>";
   }
   div.innerHTML = score; 
-  div.appendChild(moveInterface);
+  if (info.winner) {
+    div.innerHTML += info.winner + 'WON!!!!';
+    return;
+  }
+  mover(table.common.deck, table.players[playerIndex].hand);
+  let moves = lister(playerIndex, table, deckSchema, cardLister, stringer, checker, ruleF);
+  let callback = function() {
+    var keys = Object.keys(playerSchema).sort();
+    var loc = keys.indexOf(playerIndex);
+    var nextPlayerKey = keys[loc + 1] ? keys[loc + 1] : keys[0];
+    turnManager(table, nextPlayerKey, mover, lister, deckSchema, stringer, checker, ruleF, cardLister, div, gameManager, playerSchema);
+  }
+  
+  if (playerSchema[playerIndex].machine) {
+    div.innerHTML += AIMove(table.players, playerIndex, playerSchema, moves, mover, stringer);
+    setTimeout(callback, 2000);
+  }
+  else {
+    var moveInterface = moveGUI(table.players, playerIndex, playerSchema, moves, mover, callback);
+    div.appendChild(moveInterface);
+  }
   console.log(table);
 }
 
+/**
+ * Determines the score and watches for a winner.
+ */
 const gameManager = function(players, deckSchema) {
   let data = {"players": []};
   for (let player in players) {
@@ -370,6 +466,9 @@ const gameManager = function(players, deckSchema) {
       }
       return score;
     }());
+    if (data.players[player].score == 50) {
+      data.winner = player;
+    }
   }
   return data;
 }
