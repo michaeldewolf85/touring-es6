@@ -176,7 +176,7 @@ const moveCard = function(source, destination, index) {
 }
 
 const moveCardToString = function(cardName, destinationPlayer, destinationName, status) {
-  let p = destinationPlayer ? " opponent " : " yourself ";
+  let p = destinationPlayer === false ? " yourself " : " player " + destinationPlayer;
   var status = status ? "CAN" : "CANNOT";
   return cardName + " " + status + " by moved to " + destinationName + " of " + p;
 }
@@ -206,9 +206,12 @@ const listMovesForCard = function(player, handIndex, table, deckSchema, toString
   for (let ruleHandler in deckSchema[card].rules) {
     if (deckSchema[card].offense) {
       for (let i in table.players) {
+        if (i == player) {
+          continue;
+        }
         let check = checker(card, table.players[i], table, deckSchema);
         if (check) {
-          moves.push([toStringer(card, false, deckSchema[card].type, true), table.players[player].hand, table.players[i][deckSchema[card].type], handIndex]);
+          moves.push([toStringer(card, i, deckSchema[card].type, true), table.players[player].hand, table.players[i][deckSchema[card].type], handIndex]);
         }
       }
     } else {
@@ -218,6 +221,7 @@ const listMovesForCard = function(player, handIndex, table, deckSchema, toString
       }
     }
   }
+  moves.push([toStringer(card, false, 'discard', true), table.players[player].hand, table.common.discard, handIndex]);
   return moves;
 }
 
@@ -285,7 +289,7 @@ const chooseMove = function(players, playerIndex, playerSchema, moves) {
   }
 }
 
-const moveGUI = function(players, playerIndex, playerSchema, moves, mover) {
+const moveGUI = function(players, playerIndex, playerSchema, moves, mover, postCallback) {
   let choicesGUI = document.createElement('DIV');
   let playerText = document.createElement('H3');
   playerText.innerHTML = 'PLAYER ' + playerIndex;
@@ -295,15 +299,29 @@ const moveGUI = function(players, playerIndex, playerSchema, moves, mover) {
 
   let len = moves.length;
   for (let i = 0; i < len; i++) {
-    let moveInfo = moves[i][0];
-    let choice = document.createElement('LI');
-    choice.innerHTML = moveInfo[0];
-    choice.addEventListener('click', function() {
-      mover(moveInfo[1], moveInfo[2], moveInfo[3]);
-    });
-    choicesList.appendChild(choice);
+    for (let j = 0; j < moves[i].length; j++) {
+      let moveInfo = moves[i][j];
+      let choice = document.createElement('LI');
+      choice.innerHTML = moveInfo[0];
+      choice.addEventListener('click', function() {
+        mover(moveInfo[1], moveInfo[2], moveInfo[3]);
+        postCallback();
+      });
+      choicesList.appendChild(choice);
+    }
   }
 
   choicesGUI.appendChild(choicesList);
   return choicesGUI;
+}
+
+const turnManager = function(table, playerIndex, mover, lister, deckSchema, stringer, checker, ruleF, cardLister, div) {
+  mover(table.common.deck, table.players[playerIndex].hand);
+  let moves = lister(playerIndex, table, deckSchema, cardLister, stringer, checker, ruleF);
+  var moveInterface = moveGUI(table.players, playerIndex, playerSchema, moves, mover, function() {
+    var nextPlayer = table.players[playerIndex + 1] ? playerIndex + 1 : 0;
+    turnManager(table, nextPlayer, mover, lister, deckSchema, stringer, checker, ruleF, cardLister, div);
+  });
+  div.innerHTML = ''; 
+  div.appendChild(moveInterface);
 }
