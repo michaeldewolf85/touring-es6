@@ -130,8 +130,12 @@ const tableSchema = {
  * Schema information for players.
  */
 const playerSchema = {
-  "mandie": {
+  "mike": {
     "machine": false,
+    'temperment': 0.2
+  },  
+  "mandie": {
+    "machine": true,
     'temperment': 0.8
   },
   "max": {
