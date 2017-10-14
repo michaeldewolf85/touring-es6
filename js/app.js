@@ -114,9 +114,11 @@ const tableSchema = {
 
 const playerSchema = {
   "mandie": {
+    "machine": 0,
     'temperment': 0.8
   },
   "max": {
+    "machine": 0,
     'temperment': 0.2
   }
 };
@@ -191,7 +193,10 @@ const listMoves = function(player, table, deckSchema, lister, toStringer, checke
   var len = table.players[player].hand.length;
   let availableMoves = [];
   for (let i = 0; i < len; i++) {
-    availableMoves.push(lister(player, i, table, deckSchema, toStringer, checker, ruleFactory));
+    let moves = lister(player, i, table, deckSchema, toStringer, checker, ruleFactory);
+    if (moves.length) {
+      availableMoves.push(lister(player, i, table, deckSchema, toStringer, checker, ruleFactory));
+    }
   }
   return availableMoves;
 }
@@ -272,12 +277,33 @@ speedLimitRuleHandler = function(card, player, table, deckSchema) {
 
 const chooseMove = function(players, playerIndex, playerSchema, moves) {
   let len = moves.length;
-  console.log(moves);
   for (let i = 0; i < len; i++) {
     if (!moves[i][1]) {
       continue;
     }
     let card = moves[i][1][moves[i][3]];
-    console.log(card);
   }
+}
+
+const moveGUI = function(players, playerIndex, playerSchema, moves, mover) {
+  let choicesGUI = document.createElement('DIV');
+  let playerText = document.createElement('H3');
+  playerText.innerHTML = 'PLAYER ' + playerIndex;
+  choicesGUI.appendChild(playerText);
+  choicesGUI.className = 'choices-gui';
+  let choicesList = document.createElement('UL');
+
+  let len = moves.length;
+  for (let i = 0; i < len; i++) {
+    let moveInfo = moves[i][0];
+    let choice = document.createElement('LI');
+    choice.innerHTML = moveInfo[0];
+    choice.addEventListener('click', function() {
+      mover(moveInfo[1], moveInfo[2], moveInfo[3]);
+    });
+    choicesList.appendChild(choice);
+  }
+
+  choicesGUI.appendChild(choicesList);
+  return choicesGUI;
 }
