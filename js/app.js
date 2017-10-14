@@ -71,6 +71,8 @@ const deckSchema = {
   "min": {
     "qty": 20,
     "type": "min",
+    "value": 1,
+    "goal": 8,
     "offense": false,
     "rules": {
       "maxInPile": [8],
@@ -80,6 +82,8 @@ const deckSchema = {
   "low": {
     "qty": 10,
     "type": "low",
+    "value": 3,
+    "goal": 4,
     "offense": false,
     "rules": {
       "maxInPile": [4],
@@ -89,6 +93,8 @@ const deckSchema = {
   "high": {
     "qty": 10,
     "type": "high",
+    "value": 5,
+    "goal": 2,
     "offense": false,
     "rules": {
       "maxInPile": [2],
@@ -98,7 +104,9 @@ const deckSchema = {
   "max": {
     "qty": 12,
     "type": "max",
+    "value": 10,
     "offense": false,
+    "goal": 2,
     "rules": {
       "maxInPile": [2],
       "statusGo": [],
@@ -171,7 +179,7 @@ const addCards = function(cards, destination) {
 
 const moveCard = function(source, destination, index) {
   index = index ? index : 0;
-  destination.push(source[index]);
+  destination.unshift(source[index]);
   source.splice(index, 1);
 }
 
@@ -195,7 +203,7 @@ const listMoves = function(player, table, deckSchema, lister, toStringer, checke
   for (let i = 0; i < len; i++) {
     let moves = lister(player, i, table, deckSchema, toStringer, checker, ruleFactory);
     if (moves.length) {
-      availableMoves.push(lister(player, i, table, deckSchema, toStringer, checker, ruleFactory));
+      availableMoves.push(moves);
     }
   }
   return availableMoves;
@@ -203,22 +211,32 @@ const listMoves = function(player, table, deckSchema, lister, toStringer, checke
 
 const listMovesForCard = function(player, handIndex, table, deckSchema, toStringer, checker, ruleFactory) {
   let card = table.players[player].hand[handIndex], str = '', moves = [];
-  for (let ruleHandler in deckSchema[card].rules) {
-    if (deckSchema[card].offense) {
-      for (let i in table.players) {
-        if (i == player) {
+  if (deckSchema[card].offense) {
+    for (let i in table.players) {
+      if (i == player) {
+        continue;
+      }
+      let check = true;
+      for (let ruleHandler in deckSchema[card].rules) {
+        if (!checker(card, table.players[i], table, deckSchema)) {
+          check = false;
           continue;
         }
-        let check = checker(card, table.players[i], table, deckSchema);
-        if (check) {
-          moves.push([toStringer(card, i, deckSchema[card].type, true), table.players[player].hand, table.players[i][deckSchema[card].type], handIndex]);
-        }
       }
-    } else {
-      let check = checker(card, table.players[player],table, deckSchema);
       if (check) {
-        moves.push([toStringer(card, false, deckSchema[card].type, true), table.players[player].hand, table.players[player][deckSchema[card].type], handIndex]);
+        moves.push([toStringer(card, i, deckSchema[card].type, true), table.players[player].hand, table.players[i][deckSchema[card].type], handIndex]);
       }
+    }
+  } else {
+    let check = true;
+    for (let ruleHandler in deckSchema[card].rules) {
+      if (!checker(card, table.players[player], table, deckSchema)) {
+        check = false;
+        continue;
+      }
+    }
+    if (check) {
+      moves.push([toStringer(card, false, deckSchema[card].type, true), table.players[player].hand, table.players[player][deckSchema[card].type], handIndex]);
     }
   }
   moves.push([toStringer(card, false, 'discard', true), table.players[player].hand, table.common.discard, handIndex]);
@@ -260,7 +278,7 @@ topCardRegexRuleHandler = function(card, player, table, deckSchema, args) {
 }
 
 statusGoRuleHandler = function(card, player, table, deckSchema) {
-  if (!player.status.length || !player.status[0] == 'go') {
+  if (!player.status.length || player.status[0] != 'go') {
     return false;
   }
   return true;
@@ -292,7 +310,7 @@ const chooseMove = function(players, playerIndex, playerSchema, moves) {
 const moveGUI = function(players, playerIndex, playerSchema, moves, mover, postCallback) {
   let choicesGUI = document.createElement('DIV');
   let playerText = document.createElement('H3');
-  playerText.innerHTML = 'PLAYER ' + playerIndex;
+  playerText.innerHTML = 'PLAYER ' + playerIndex + ': ' + players[playerIndex].hand.toString();
   choicesGUI.appendChild(playerText);
   choicesGUI.className = 'choices-gui';
   let choicesList = document.createElement('UL');
@@ -315,13 +333,42 @@ const moveGUI = function(players, playerIndex, playerSchema, moves, mover, postC
   return choicesGUI;
 }
 
-const turnManager = function(table, playerIndex, mover, lister, deckSchema, stringer, checker, ruleF, cardLister, div) {
+const turnManager = function(table, playerIndex, mover, lister, deckSchema, stringer, checker, ruleF, cardLister, div, gameManager) {
   mover(table.common.deck, table.players[playerIndex].hand);
   let moves = lister(playerIndex, table, deckSchema, cardLister, stringer, checker, ruleF);
   var moveInterface = moveGUI(table.players, playerIndex, playerSchema, moves, mover, function() {
     var nextPlayer = table.players[playerIndex + 1] ? playerIndex + 1 : 0;
-    turnManager(table, nextPlayer, mover, lister, deckSchema, stringer, checker, ruleF, cardLister, div);
+    turnManager(table, nextPlayer, mover, lister, deckSchema, stringer, checker, ruleF, cardLister, div, gameManager);
   });
-  div.innerHTML = ''; 
+  
+  var info = gameManager(table.players, deckSchema);
+  let len = table.players.length;
+  let score = '<h2>SCORE</h2>';
+  for (let player in table.players) {
+    score += 'Player ' + player + ": <strong>" + info.players[player].score + " miles</strong></br>";
+  }
+  div.innerHTML = score; 
   div.appendChild(moveInterface);
+  console.log(table);
+}
+
+const gameManager = function(players, deckSchema) {
+  let data = {"players": []};
+  for (let player in players) {
+    data.players[player] = {};
+    data.players[player].score = (function() {
+      let arr = ['min', 'low', 'high', 'max'], score = 0;
+      let complete = 0;
+      for (let i = 0; i < arr.length; i++) {
+        let val = deckSchema[arr[i]].value;
+        let goal = deckSchema[arr[i]].goal;
+        score += (players[player][arr[i]].length * val);
+        if (players[player][arr[i]].length == goal) {
+          complete++;
+        }
+      }
+      return score;
+    }());
+  }
+  return data;
 }
